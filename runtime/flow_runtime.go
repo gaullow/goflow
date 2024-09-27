@@ -10,22 +10,20 @@ import (
 	"time"
 
 	"github.com/adjust/rmq/v4"
-	redis2 "github.com/go-redis/redis/v8"
-	"github.com/jasonlvhit/gocron"
-	"github.com/rs/xid"
 	"github.com/gaullow/goflow/core/runtime"
 	"github.com/gaullow/goflow/core/runtime/controller"
 	"github.com/gaullow/goflow/core/sdk"
 	"github.com/gaullow/goflow/core/sdk/executor"
 	"github.com/gaullow/goflow/core/sdk/exporter"
-	"github.com/gaullow/goflow/eventhandler"
 	log2 "github.com/gaullow/goflow/log"
+	redis2 "github.com/go-redis/redis/v8"
+	"github.com/jasonlvhit/gocron"
+	"github.com/rs/xid"
 	"gopkg.in/redis.v5"
 )
 
 type FlowRuntime struct {
 	Flows                   map[string]FlowDefinitionHandler
-	OpenTracingUrl          string
 	RedisURL                string
 	RedisPassword           string
 	stateStore              sdk.StateStore
@@ -41,8 +39,6 @@ type FlowRuntime struct {
 	RetryQueueCount         int
 	DebugEnabled            bool
 	workerMode              bool
-
-	eventHandler sdk.EventHandler
 
 	taskQueues    map[string]rmq.Queue
 	srv           *http.Server
@@ -111,10 +107,6 @@ func (fRuntime *FlowRuntime) Init() error {
 		fRuntime.Logger = &log2.StdErrLogger{}
 	}
 
-	fRuntime.eventHandler = &eventhandler.GoFlowEventHandler{
-		TraceURI: fRuntime.OpenTracingUrl,
-	}
-
 	return nil
 }
 
@@ -128,7 +120,6 @@ func (fRuntime *FlowRuntime) CreateExecutor(req *runtime.Request) (executor.Exec
 		RequestAuthSharedSecret: fRuntime.RequestAuthSharedSecret,
 		RequestAuthEnabled:      fRuntime.RequestAuthEnabled,
 		DataStore:               fRuntime.DataStore,
-		EventHandler:            fRuntime.eventHandler,
 		EnableMonitoring:        fRuntime.EnableMonitoring,
 		Handler:                 flowHandler,
 		Logger:                  fRuntime.Logger,

@@ -20,7 +20,6 @@ type FlowService struct {
 	Flows                   map[string]runtime.FlowDefinitionHandler
 	RequestReadTimeout      time.Duration
 	RequestWriteTimeout     time.Duration
-	OpenTraceUrl            string
 	DataStore               sdk.DataStore
 	Logger                  sdk.Logger
 	EnableMonitoring        bool
@@ -37,7 +36,6 @@ type Request struct {
 }
 
 const (
-	DefaultTraceUrl           = "localhost:5775"
 	DefaultRedisUrl           = "localhost:6379"
 	DefaultWorkerConcurrency  = 2
 	DefaultWebServerPort      = 8080
@@ -251,9 +249,6 @@ func (fs *FlowService) StartWorker() error {
 }
 
 func (fs *FlowService) ConfigureDefault() {
-	if fs.OpenTraceUrl == "" {
-		fs.OpenTraceUrl = DefaultTraceUrl
-	}
 	if fs.RedisURL == "" {
 		fs.RedisURL = DefaultRedisUrl
 	}
@@ -280,7 +275,6 @@ func (fs *FlowService) initRuntime(errorChan chan error) error {
 
 	fs.runtime = &runtime.FlowRuntime{
 		Flows:                   map[string]runtime.FlowDefinitionHandler{},
-		OpenTracingUrl:          fs.OpenTraceUrl,
 		RedisURL:                fs.RedisURL,
 		RedisPassword:           fs.RedisPassword,
 		DataStore:               fs.DataStore,

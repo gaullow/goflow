@@ -6,7 +6,6 @@ import (
 	"github.com/gaullow/goflow/core/runtime"
 	"github.com/gaullow/goflow/core/sdk"
 	"github.com/gaullow/goflow/core/sdk/executor"
-	"github.com/gaullow/goflow/eventhandler"
 	"github.com/gaullow/goflow/flow/v1"
 	"io/ioutil"
 	"log"
@@ -26,7 +25,6 @@ type FlowExecutor struct {
 	rawRequest              *executor.RawRequest
 	StateStore              sdk.StateStore
 	DataStore               sdk.DataStore
-	EventHandler            sdk.EventHandler
 	Logger                  sdk.Logger
 	Handler                 FlowDefinitionHandler
 	Runtime                 *FlowRuntime
@@ -44,11 +42,6 @@ func (fe *FlowExecutor) HandleNextNode(partial *executor.PartialState) error {
 	request.RequestID = fe.reqID
 	request.FlowName = fe.flowName
 	request.Header = make(map[string][]string)
-	if fe.MonitoringEnabled() {
-		// TODO: Fix issue
-		//faasHandler := fe.EventHandler.(*eventhandler.GoFlowEventHandler)
-		//faasHandler.Tracer.ExtendReqSpan(fe.reqID, faasHandler.CurrentNodeID, "", request)
-	}
 	err = fe.Runtime.EnqueuePartialRequest(request)
 	if err != nil {
 		return fmt.Errorf("failed to enqueue request, error %v", err)
@@ -122,10 +115,6 @@ func (fe *FlowExecutor) MonitoringEnabled() bool {
 	return fe.EnableMonitoring
 }
 
-func (fe *FlowExecutor) GetEventHandler() (sdk.EventHandler, error) {
-	return fe.EventHandler.Copy()
-}
-
 func (fe *FlowExecutor) LoggingEnabled() bool {
 	return fe.IsLoggingEnabled
 }
@@ -147,9 +136,6 @@ func (fe *FlowExecutor) Init(request *runtime.Request) error {
 
 	callbackURL := request.GetHeader("X-Faas-Flow-Callback-Url")
 	fe.CallbackURL = callbackURL
-
-	faasHandler := fe.EventHandler.(*eventhandler.GoFlowEventHandler)
-	faasHandler.Header = request.Header
 
 	return nil
 }

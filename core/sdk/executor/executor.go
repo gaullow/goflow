@@ -9,8 +9,8 @@ import (
 	"strconv"
 
 	hmac "github.com/alexellis/hmac"
-	xid "github.com/rs/xid"
 	sdk "github.com/gaullow/goflow/core/sdk"
+	xid "github.com/rs/xid"
 )
 
 // RawRequest a raw request for the flow
@@ -65,10 +65,6 @@ type Executor interface {
 	ReqAuthEnabled() bool
 	// GetReqAuthKey get the request auth key
 	GetReqAuthKey() (string, error)
-	// MonitoringEnabled check if request monitoring enabled
-	MonitoringEnabled() bool
-	// GetEventHandler get the event handler for request monitoring
-	GetEventHandler() (sdk.EventHandler, error)
 	// LoggingEnabled check if logging is enabled
 	LoggingEnabled() bool
 	// GetLogger get the logger
@@ -94,10 +90,9 @@ type FlowExecutor struct {
 	id       string // the unique request id
 	query    string // the query to the flow
 
-	eventHandler sdk.EventHandler // Handler flow events
-	logger       sdk.Logger       // Handle flow logs
-	stateStore   sdk.StateStore   // the state store
-	dataStore    sdk.DataStore    // the data store
+	logger     sdk.Logger     // Handle flow logs
+	stateStore sdk.StateStore // the state store
+	dataStore  sdk.DataStore  // the data store
 
 	partial      bool          // denotes the flow is in partial execution state
 	newRequest   *RawRequest   // holds the new request
@@ -332,11 +327,6 @@ func (fexec *FlowExecutor) executeNode(request []byte) ([]byte, error) {
 
 	currentNode, _ := pipeline.GetCurrentNodeDag()
 
-	// mark as start of node
-	if fexec.executor.MonitoringEnabled() {
-		fexec.eventHandler.ReportNodeStart(currentNode.GetUniqueId(), fexec.id)
-	}
-
 	for _, operation := range currentNode.Operations() {
 		// Check if request is terminate
 		if !fexec.isActive() {
@@ -358,10 +348,6 @@ func (fexec *FlowExecutor) executeNode(request []byte) ([]byte, error) {
 			return nil, fmt.Errorf("[request `%s`] pipeline is not active", fexec.id)
 		}
 
-		if fexec.executor.MonitoringEnabled() {
-			fexec.eventHandler.ReportOperationStart(operation.GetId(), currentNode.GetUniqueId(), fexec.id)
-		}
-
 		options := fexec.executor.GetExecutionOption(operation)
 
 		if result == nil {
@@ -370,15 +356,9 @@ func (fexec *FlowExecutor) executeNode(request []byte) ([]byte, error) {
 			result, err = operation.Execute(result, options)
 		}
 		if err != nil {
-			if fexec.executor.MonitoringEnabled() {
-				fexec.eventHandler.ReportOperationFailure(operation.GetId(), currentNode.GetUniqueId(), fexec.id, err)
-			}
 			err = fmt.Errorf("node(%s), Operation (%s), error: execution failed, %v",
 				currentNode.GetUniqueId(), operation.GetId(), err)
 			return nil, err
-		}
-		if fexec.executor.MonitoringEnabled() {
-			fexec.eventHandler.ReportOperationEnd(operation.GetId(), currentNode.GetUniqueId(), fexec.id)
 		}
 	}
 
@@ -402,10 +382,6 @@ func (fexec *FlowExecutor) findCurrentNodeToExecute() {
 		subdag := currentNode.SubDag()
 		if subdag == nil {
 			break
-		}
-		// trace node - mark as start of the parent node
-		if fexec.executor.MonitoringEnabled() {
-			fexec.eventHandler.ReportNodeStart(currentNode.GetUniqueId(), fexec.id)
 		}
 		fexec.log("[request `%s`] executing node %s\n", fexec.id, currentNode.GetUniqueId())
 		currentDag = subdag
@@ -443,10 +419,6 @@ func (fexec *FlowExecutor) forwardState(currentNodeId string, nextNodeId string,
 	// Build request
 	uprequest := buildRequest(fexec.id, string(pipelineState), fexec.query, result, store, sign)
 
-	if fexec.executor.MonitoringEnabled() {
-		fexec.eventHandler.ReportExecutionForward(currentNodeId, fexec.id)
-	}
-
 	partialState := &PartialState{uprequest: uprequest}
 
 	var err error
@@ -473,17 +445,7 @@ func (fexec *FlowExecutor) executeDynamic(context *sdk.Context, result []byte) (
 
 	currentNode, _ := pipeline.GetCurrentNodeDag()
 
-	// trace node - mark as start of the dynamic node
-	if fexec.executor.MonitoringEnabled() {
-		fexec.eventHandler.ReportNodeStart(currentNode.GetUniqueId(),
-			fexec.id)
-	}
-
 	currentNodeUniqueId := currentNode.GetUniqueId()
-	if fexec.executor.MonitoringEnabled() {
-		defer fexec.eventHandler.ReportNodeEnd(currentNodeUniqueId, fexec.id)
-	}
-
 	fexec.log("[request `%s`] processing dynamic node %s\n", fexec.id, currentNodeUniqueId)
 
 	// sub results and sub dags
@@ -638,10 +600,6 @@ func (fexec *FlowExecutor) findNextNodeToExecute() bool {
 	// Check if the pipeline has completed execution return
 	// else change depth and continue executing
 	for true {
-		if fexec.executor.MonitoringEnabled() {
-			defer fexec.eventHandler.ReportNodeEnd(currentNode.GetUniqueId(), fexec.id)
-		}
-
 		// If nodes left in current dag return
 		if currentNode.Children() != nil {
 			return true
@@ -657,11 +615,6 @@ func (fexec *FlowExecutor) findNextNodeToExecute() bool {
 			currentDag = currentNode.ParentDag()
 			pipeline.UpdatePipelineExecutionPosition(sdk.DEPTH_DECREMENT, currentNode.Id)
 			fexec.log("[request `%s`] executing node %s", fexec.id, currentNode.GetUniqueId())
-
-			// mark execution of the node for new depth
-			if fexec.executor.MonitoringEnabled() {
-				defer fexec.eventHandler.ReportNodeStart(currentNode.GetUniqueId(), fexec.id)
-			}
 
 			// If current node is a dynamic node, forward the request for its end
 			if currentNode.Dynamic() {
@@ -891,11 +844,6 @@ func (fexec *FlowExecutor) handleFailure(context *sdk.Context, err error) {
 	}
 	fexec.dataStore.Cleanup()
 
-	if fexec.executor.MonitoringEnabled() {
-		fexec.eventHandler.ReportRequestFailure(fexec.id, err)
-		fexec.eventHandler.Flush()
-	}
-
 	fmt.Sprintf("[request `%s`] Failed, %v\n", fexec.id, err)
 }
 
@@ -1066,19 +1014,6 @@ func (fexec *FlowExecutor) init() ([]byte, error) {
 
 		requestData = rawRequest.Data
 
-		if fexec.executor.MonitoringEnabled() {
-			fexec.eventHandler, err = fexec.executor.GetEventHandler()
-			if err != nil {
-				return nil, fmt.Errorf("failed to initialize EventHandler, error %v", err)
-			}
-			fexec.eventHandler.Configure(fexec.flowName, fexec.id)
-			err := fexec.eventHandler.Init()
-			if err != nil {
-				return nil, fmt.Errorf("failed to initialize EventHandler, error %v", err)
-			}
-			fexec.eventHandler.ReportRequestStart(fexec.id)
-		}
-
 		if fexec.executor.LoggingEnabled() {
 			fexec.logger, err = fexec.executor.GetLogger()
 			if err != nil {
@@ -1119,19 +1054,6 @@ func (fexec *FlowExecutor) init() ([]byte, error) {
 		fexec.dataStore = retrieveDataStore(request.getContextStore())
 
 		requestData = request.getData()
-
-		if fexec.executor.MonitoringEnabled() {
-			fexec.eventHandler, err = fexec.executor.GetEventHandler()
-			if err != nil {
-				return nil, fmt.Errorf("failed to get EventHandler, error %v", err)
-			}
-			fexec.eventHandler.Configure(fexec.flowName, fexec.id)
-			err := fexec.eventHandler.Init()
-			if err != nil {
-				return nil, fmt.Errorf("failed to initialize EventHandler, error %v", err)
-			}
-			fexec.eventHandler.ReportExecutionContinuation(fexec.id)
-		}
 
 		if fexec.executor.LoggingEnabled() {
 			fexec.logger, err = fexec.executor.GetLogger()
@@ -1309,10 +1231,6 @@ func (fexec *FlowExecutor) Execute(state ExecutionStateOption) ([]byte, error) {
 				}
 				// in case dynamic end can not be executed
 				if result == nil {
-					if fexec.executor.MonitoringEnabled() {
-						fexec.eventHandler.ReportNodeEnd(currentNode.GetUniqueId(), fexec.id)
-					}
-
 					break NodeCompletionLoop
 				}
 				// in case dynamic nodes end has finished execution,
@@ -1364,12 +1282,6 @@ func (fexec *FlowExecutor) Execute(state ExecutionStateOption) ([]byte, error) {
 
 		resp = result
 	}
-
-	if fexec.executor.MonitoringEnabled() {
-		fexec.eventHandler.ReportRequestEnd(fexec.id)
-		fexec.eventHandler.Flush()
-	}
-
 	return resp, nil
 }
 
