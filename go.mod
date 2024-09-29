@@ -1,6 +1,6 @@
 module github.com/gaullow/goflow
 
-go 1.23
+go 1.22
 
 require (
 	github.com/adjust/rmq/v4 v4.0.5
