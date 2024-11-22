@@ -136,7 +136,7 @@ const (
 	// signature of SHA265 equivalent of "github.com/s8sg/faas-flow"
 	defaultHmacKey = "71F1D3011F8E6160813B4997BA29856744375A7F26D427D491E1CCABD4627E7C"
 	// max retry count to update counter
-	counterUpdateRetryCount = 10
+	counterUpdateRetryCount = 1
 )
 
 // log logs using logger if logging enabled
