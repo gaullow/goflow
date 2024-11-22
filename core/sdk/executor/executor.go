@@ -4,13 +4,12 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log"
-	"net/url"
-	"strconv"
-
 	hmac "github.com/alexellis/hmac"
 	sdk "github.com/gaullow/goflow/core/sdk"
 	xid "github.com/rs/xid"
+	"log"
+	"net/url"
+	"strconv"
 )
 
 // RawRequest a raw request for the flow

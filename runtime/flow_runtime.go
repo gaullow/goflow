@@ -67,7 +67,7 @@ const (
 	FlowKeyInitial              = "goflow-flow"
 	WorkerKeyInitial            = "goflow-worker"
 
-	GoFlowRegisterInterval = 4
+	GoFlowRegisterInterval = 1 // 1分钟刷新一次
 	RDBKeyTimeOut          = 10
 
 	PartialRequest = "PARTIAL"
@@ -382,7 +382,7 @@ func (fRuntime *FlowRuntime) StartRuntime() error {
 		return err
 	}
 
-	err = gocron.Every(GoFlowRegisterInterval).Second().Do(func() {
+	err = gocron.Every(GoFlowRegisterInterval).Minute().Do(func() {
 		err := registerDetails()
 		if err != nil {
 			log.Printf("failed to register details, %v", err)

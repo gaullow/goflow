@@ -356,7 +356,7 @@ func DefineWorkflow(f *flow.Workflow, context *flow.Context) error {
     return nil
 }
 ```
-#更新状态
-storePartialState
+#更新状态时间间隔
+GoFlowRegisterInterval = 30 //30秒刷新一次
 
  
