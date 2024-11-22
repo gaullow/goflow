@@ -356,6 +356,7 @@ func DefineWorkflow(f *flow.Workflow, context *flow.Context) error {
     return nil
 }
 ```
-
+#更新状态
+storePartialState
 
  
