@@ -67,7 +67,7 @@ const (
 	FlowKeyInitial              = "goflow-flow"
 	WorkerKeyInitial            = "goflow-worker"
 
-	GoFlowRegisterInterval = 1 // 1分钟刷新一次
+	GoFlowRegisterInterval = 10 // 10分钟刷新一次
 	RDBKeyTimeOut          = 10
 
 	PartialRequest = "PARTIAL"
